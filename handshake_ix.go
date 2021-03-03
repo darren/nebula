@@ -239,7 +239,7 @@ func ixHandshakeStage1(f *Interface, addr *udpAddr, hostinfo *HostInfo, packet [
 			//l.Debugln("got symmetric pairs")
 
 			//hostinfo.ClearRemotes()
-			hostinfo.AddRemote(*addr)
+			hostinfo.AddRemote(addr)
 			hostinfo.CreateRemoteCIDR(remoteCert)
 			f.lightHouse.AddRemoteAndReset(ip, addr)
 			if f.serveDns {
