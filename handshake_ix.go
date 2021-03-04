@@ -14,6 +14,9 @@ import (
 // This function constructs a handshake packet, but does not actually send it
 // Sending is done by the handshake manager
 func ixHandshakeStage0(f *Interface, vpnIp uint32, hostinfo *HostInfo) {
+	hostinfo.handshakeLock.Lock()
+	defer hostinfo.handshakeLock.Unlock()
+
 	// This queries the lighthouse if we don't know a remote for the host
 	if hostinfo.remote == nil {
 		ips, err := f.lightHouse.Query(vpnIp, f)
@@ -70,7 +73,6 @@ func ixHandshakeStage0(f *Interface, vpnIp uint32, hostinfo *HostInfo) {
 	hostinfo.HandshakePacket[0] = msg
 	hostinfo.HandshakeReady = true
 	hostinfo.handshakeStart = time.Now()
-
 }
 
 func ixHandshakeStage1(f *Interface, addr *udpAddr, hostinfo *HostInfo, packet []byte, h *Header) bool {

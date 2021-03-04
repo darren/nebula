@@ -58,6 +58,7 @@ type HostInfo struct {
 
 	lastRoam       time.Time
 	lastRoamRemote *udpAddr
+	handshakeLock  sync.Mutex
 }
 
 type cachedPacket struct {
