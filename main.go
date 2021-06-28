@@ -329,6 +329,20 @@ func Main(c *config.C, configTest bool, buildVersion string, logger *logrus.Logg
 		dnsStart = dnsMain(l, hostMap, c)
 	}
 
+	// Start proxy server to allow using the nebula IP as proxy Server
+	var proxyStart func()
+	serveSocks5Port := c.GetInt("socks5.port", 0)
+	if serveSocks5Port > 0 {
+		l.Debugln("Starting proxy server")
+		proxyStart = proxyMain(l, hostMap.vpnCIDR, c)
+	}
+
+	// Start Forward server to allow using the nebula IP as forward Server
+	var forwardStart func()
+	if c.Get("forward") != nil {
+		l.Debugln("Starting Forward server")
+		forwardStart = forwardMain(l, hostMap.vpnCIDR, c)
+	}
 	return &Control{
 		ifce,
 		l,
@@ -336,6 +350,8 @@ func Main(c *config.C, configTest bool, buildVersion string, logger *logrus.Logg
 		sshStart,
 		statsStart,
 		dnsStart,
+		proxyStart,
+		forwardStart,
 		lightHouse.StartUpdateWorker,
 	}, nil
 }

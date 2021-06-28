@@ -33,6 +33,8 @@ type Control struct {
 	sshStart        func()
 	statsStart      func()
 	dnsStart        func()
+	proxyStart      func()
+	forwardStart    func()
 	lighthouseStart func()
 }
 
@@ -66,6 +68,12 @@ func (c *Control) Start() {
 	}
 	if c.lighthouseStart != nil {
 		c.lighthouseStart()
+	}
+	if c.proxyStart != nil {
+		go c.proxyStart()
+	}
+	if c.forwardStart != nil {
+		go c.forwardStart()
 	}
 
 	// Start reading packets.
