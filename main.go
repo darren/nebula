@@ -423,5 +423,13 @@ func Main(config *Config, configTest bool, buildVersion string, logger *logrus.L
 		dnsStart = dnsMain(l, hostMap, config)
 	}
 
-	return &Control{ifce, l, sshStart, statsStart, dnsStart}, nil
+	// Start DNS server last to allow using the nebula IP as lighthouse.dns.host
+	var socks5Start func()
+	serveSocks5Port := config.GetInt("socks5.port", 0)
+	if serveSocks5Port > 0 {
+		l.Debugln("Starting socks5 server")
+		socks5Start = socks5Main(l, hostMap.vpnCIDR, config)
+	}
+
+	return &Control{ifce, l, sshStart, statsStart, dnsStart, socks5Start}, nil
 }
