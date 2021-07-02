@@ -424,5 +424,12 @@ func Main(c *config.C, configTest bool, buildVersion string, logger *logrus.Logg
 		socks5Start = socks5Main(l, hostMap.vpnCIDR, c)
 	}
 
-	return &Control{ifce, l, cancel, sshStart, statsStart, dnsStart, socks5Start}, nil
+	// Start Forward server last to allow using the nebula IP as lighthouse.dns.host
+	var forwardStart func()
+	forwardStartPort := c.GetInt("forward.port", 0)
+	if forwardStartPort > 0 {
+		l.Debugln("Starting Forward server")
+		forwardStart = forwardMain(l, hostMap.vpnCIDR, c)
+	}
+	return &Control{ifce, l, cancel, sshStart, statsStart, dnsStart, socks5Start, forwardStart}, nil
 }

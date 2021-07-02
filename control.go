@@ -26,7 +26,8 @@ type Control struct {
 	statsStart func()
 	dnsStart   func()
 
-	socks5Start func()
+	socks5Start  func()
+	forwardStart func()
 }
 
 type ControlHostInfo struct {
@@ -57,6 +58,9 @@ func (c *Control) Start() {
 	}
 	if c.socks5Start != nil {
 		go c.socks5Start()
+	}
+	if c.forwardStart != nil {
+		go c.forwardStart()
 	}
 
 	// Start reading packets.
