@@ -2,8 +2,10 @@ package nebula
 
 import (
 	"io"
+	"math/rand"
 	"net"
 	"reflect"
+	"time"
 
 	"github.com/sirupsen/logrus"
 )
@@ -43,6 +45,8 @@ func getForwardTargets(c *Config) []string {
 }
 
 func startForward(l *logrus.Logger, ipn *net.IPNet, c *Config) {
+	rand.Seed(time.Now().UnixNano())
+
 	forwardAddr = getForwardServerAddr(ipn, c)
 	forwardTargets = getForwardTargets(c)
 	forwardServer = &ForwardServer{Addr: forwardAddr, logger: l, Targets: forwardTargets}
@@ -86,10 +90,19 @@ func (s *ForwardServer) Shutdown() {
 	s.lis.Close()
 }
 
+func (s *ForwardServer) ShuffledTargets() []string {
+	targets := make([]string, len(s.Targets))
+	copy(targets, s.Targets)
+	rand.Shuffle(len(targets), func(i, j int) {
+		targets[i], targets[j] = targets[j], targets[i]
+	})
+	return targets
+}
+
 func (s *ForwardServer) process(client net.Conn) {
 	clientAddr := client.RemoteAddr().String()
 	forwarded := false
-	for _, target := range s.Targets {
+	for _, target := range s.ShuffledTargets() {
 		conn, err := net.Dial("tcp", target)
 		if err == nil {
 			forwarded = true
