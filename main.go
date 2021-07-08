@@ -426,8 +426,7 @@ func Main(c *config.C, configTest bool, buildVersion string, logger *logrus.Logg
 
 	// Start Forward server last to allow using the nebula IP as lighthouse.dns.host
 	var forwardStart func()
-	forwardStartPort := c.GetInt("forward.port", 0)
-	if forwardStartPort > 0 {
+	if c.Get("forward") != nil {
 		l.Debugln("Starting Forward server")
 		forwardStart = forwardMain(l, hostMap.vpnCIDR, c)
 	}

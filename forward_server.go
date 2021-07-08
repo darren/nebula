@@ -5,14 +5,19 @@ import (
 	"math/rand"
 	"net"
 	"reflect"
+	"strconv"
 	"time"
 
 	"github.com/sirupsen/logrus"
 )
 
-var forwardServer *ForwardServer
-var forwardAddr string
-var forwardTargets []string
+type fwd struct {
+	addr    string   // listening port
+	targets []string // forward target
+}
+
+var forwardServers []*ForwardServer
+var forwardMapping []*fwd
 
 func forwardMain(l *logrus.Logger, ipn *net.IPNet, c *Config) func() {
 	c.RegisterReloadCallback(func(c *Config) {
@@ -25,40 +30,87 @@ func forwardMain(l *logrus.Logger, ipn *net.IPNet, c *Config) func() {
 }
 
 func reloadForward(l *logrus.Logger, ipn *net.IPNet, c *Config) {
-	if forwardAddr == getForwardServerAddr(ipn, c) &&
-		reflect.DeepEqual(forwardTargets, getForwardTargets(c)) {
+	if reflect.DeepEqual(forwardMapping, getForwardMapping(l, ipn, c)) {
 		l.Debug("No Forward server config change detected")
 		return
 	}
 
-	l.Debug("Restarting SOCKS5 server")
-	forwardServer.Shutdown()
+	l.Debug("Restarting Forward server")
+	for _, s := range forwardServers {
+		s.Shutdown()
+	}
+	forwardServers = nil
 	go startForward(l, ipn, c)
 }
 
-func getForwardServerAddr(ipn *net.IPNet, c *Config) string {
-	return ipn.IP.String() + ":" + c.GetString("forward.port", "")
+func newFwd(ipn *net.IPNet, m map[interface{}]interface{}) *fwd {
+	port, pok := m["port"].(int)
+	targets, tok := m["targets"].([]interface{})
+
+	rtargets := make([]string, 0, len(targets))
+	for _, t := range targets {
+		if t, ok := t.(string); ok {
+			rtargets = append(rtargets, t)
+		}
+	}
+
+	if pok && tok {
+		return &fwd{
+			addr:    ipn.IP.String() + ":" + strconv.Itoa(port),
+			targets: rtargets,
+		}
+	}
+	return nil
 }
 
-func getForwardTargets(c *Config) []string {
-	return c.GetStringSlice("forward.targets", nil)
+func getForwardMapping(l *logrus.Logger, ipn *net.IPNet, c *Config) (fwds []*fwd) {
+	f := c.Get("forward")
+	switch f := f.(type) {
+	case map[interface{}]interface{}:
+		if fwd := newFwd(ipn, f); fwd != nil {
+			fwds = append(fwds, fwd)
+		}
+	case []interface{}:
+		for _, v := range f {
+			m, ok := v.(map[interface{}]interface{})
+			if ok {
+				if fwd := newFwd(ipn, m); fwd != nil {
+					fwds = append(fwds, fwd)
+				}
+			}
+		}
+	}
+	return
 }
 
 func startForward(l *logrus.Logger, ipn *net.IPNet, c *Config) {
+	f := c.Get("forward")
+	if f == nil {
+		return
+	}
+
 	rand.Seed(time.Now().UnixNano())
 
-	forwardAddr = getForwardServerAddr(ipn, c)
-	forwardTargets = getForwardTargets(c)
-	forwardServer = &ForwardServer{Addr: forwardAddr, logger: l, Targets: forwardTargets}
-	l.WithFields(logrus.Fields{
-		"forwardListener": forwardAddr,
-		"targets":         forwardTargets,
-	}).Infof("Starting Forward server")
+	forwardMapping = getForwardMapping(l, ipn, c)
+	if len(forwardMapping) == 0 {
+		l.WithField("config", f).Error("Bad forward config")
+	}
 
-	err := forwardServer.ListenAndServe()
-	defer forwardServer.Shutdown()
-	if err != nil {
-		l.Errorf("Failed to start Forward server: %s\n ", err.Error())
+	for _, fwd := range forwardMapping {
+		forwardServer := &ForwardServer{Addr: fwd.addr, logger: l, Targets: fwd.targets}
+		l.WithFields(logrus.Fields{
+			"forwardListener": fwd.addr,
+			"targets":         fwd.targets,
+		}).Infof("Starting Forward server")
+
+		forwardServers = append(forwardServers, forwardServer)
+		go func() {
+			err := forwardServer.ListenAndServe()
+			defer forwardServer.Shutdown()
+			if err != nil {
+				l.Errorf("Failed to start Forward server: %s\n ", err.Error())
+			}
+		}()
 	}
 }
 
