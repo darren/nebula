@@ -139,7 +139,9 @@ func (s *ForwardServer) ListenAndServe() (err error) {
 }
 
 func (s *ForwardServer) Shutdown() {
-	s.lis.Close()
+	if s.lis != nil {
+		s.lis.Close()
+	}
 }
 
 func (s *ForwardServer) ShuffledTargets() []string {
