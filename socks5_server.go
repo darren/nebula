@@ -8,13 +8,14 @@ import (
 	"net"
 
 	"github.com/sirupsen/logrus"
+	"github.com/slackhq/nebula/config"
 )
 
 var socks5Server *Socks5Server
 var socks5Addr string
 
-func socks5Main(l *logrus.Logger, ipn *net.IPNet, c *Config) func() {
-	c.RegisterReloadCallback(func(c *Config) {
+func socks5Main(l *logrus.Logger, ipn *net.IPNet, c *config.C) func() {
+	c.RegisterReloadCallback(func(c *config.C) {
 		reloadSocks5(l, ipn, c)
 	})
 
@@ -23,7 +24,7 @@ func socks5Main(l *logrus.Logger, ipn *net.IPNet, c *Config) func() {
 	}
 }
 
-func reloadSocks5(l *logrus.Logger, ipn *net.IPNet, c *Config) {
+func reloadSocks5(l *logrus.Logger, ipn *net.IPNet, c *config.C) {
 	if socks5Addr == getSocks5ServerAddr(ipn, c) {
 		l.Debug("No SOCKS5 server config change detected")
 		return
@@ -34,11 +35,11 @@ func reloadSocks5(l *logrus.Logger, ipn *net.IPNet, c *Config) {
 	go startSocks5(l, ipn, c)
 }
 
-func getSocks5ServerAddr(ipn *net.IPNet, c *Config) string {
+func getSocks5ServerAddr(ipn *net.IPNet, c *config.C) string {
 	return ipn.IP.String() + ":" + c.GetString("socks5.port", "")
 }
 
-func startSocks5(l *logrus.Logger, ipn *net.IPNet, c *Config) {
+func startSocks5(l *logrus.Logger, ipn *net.IPNet, c *config.C) {
 	socks5Addr = getSocks5ServerAddr(ipn, c)
 	socks5Server = &Socks5Server{Addr: socks5Addr, logger: l}
 	l.WithField("socks5Listener", socks5Addr).Infof("Starting SOCKS5 server")
