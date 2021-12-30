@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
+	"github.com/slackhq/nebula/config"
 )
 
 type fwd struct {
@@ -19,8 +20,8 @@ type fwd struct {
 var forwardServers []*ForwardServer
 var forwardMapping []*fwd
 
-func forwardMain(l *logrus.Logger, ipn *net.IPNet, c *Config) func() {
-	c.RegisterReloadCallback(func(c *Config) {
+func forwardMain(l *logrus.Logger, ipn *net.IPNet, c *config.C) func() {
+	c.RegisterReloadCallback(func(c *config.C) {
 		reloadForward(l, ipn, c)
 	})
 
@@ -29,7 +30,7 @@ func forwardMain(l *logrus.Logger, ipn *net.IPNet, c *Config) func() {
 	}
 }
 
-func reloadForward(l *logrus.Logger, ipn *net.IPNet, c *Config) {
+func reloadForward(l *logrus.Logger, ipn *net.IPNet, c *config.C) {
 	if reflect.DeepEqual(forwardMapping, getForwardMapping(l, ipn, c)) {
 		l.Debug("No Forward server config change detected")
 		return
@@ -63,7 +64,7 @@ func newFwd(ipn *net.IPNet, m map[interface{}]interface{}) *fwd {
 	return nil
 }
 
-func getForwardMapping(l *logrus.Logger, ipn *net.IPNet, c *Config) (fwds []*fwd) {
+func getForwardMapping(l *logrus.Logger, ipn *net.IPNet, c *config.C) (fwds []*fwd) {
 	f := c.Get("forward")
 	switch f := f.(type) {
 	case map[interface{}]interface{}:
@@ -83,7 +84,7 @@ func getForwardMapping(l *logrus.Logger, ipn *net.IPNet, c *Config) (fwds []*fwd
 	return
 }
 
-func startForward(l *logrus.Logger, ipn *net.IPNet, c *Config) {
+func startForward(l *logrus.Logger, ipn *net.IPNet, c *config.C) {
 	f := c.Get("forward")
 	if f == nil {
 		return
