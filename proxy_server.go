@@ -9,6 +9,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"strings"
 
 	"github.com/sirupsen/logrus"
 	"github.com/slackhq/nebula/config"
@@ -100,6 +101,7 @@ func (s *Proxy) process(client net.Conn) {
 		}
 
 		req.RequestURI = ""
+		prune(req.Header)
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
 			s.logger.WithField("client", clientAddr).Debugf("http forward error: %v", err)
@@ -246,4 +248,48 @@ func ProxyForward(client, target net.Conn) {
 	}
 	go forward(client, target)
 	go forward(target, client)
+}
+
+// Hop-by-hop headers. These are removed when sent to the backend.
+// http://www.w3.org/Protocols/rfc2616/rfc2616-sec13.html
+var hopHeaders = []string{
+	"Connection",
+	"Keep-Alive",
+	"Proxy-Authenticate",
+	"Proxy-Authorization",
+	"Te", // canonicalized version of "TE"
+	"Trailers",
+	"Transfer-Encoding",
+	"Upgrade",
+}
+
+// removeConnectionHeaders removes hop-by-hop headers listed in the "Connection" header of h.
+// See RFC 7230, section 6.1
+func removeConnectionHeaders(h http.Header) {
+	if c := h.Get("Connection"); c != "" {
+		for _, f := range strings.Split(c, ",") {
+			if f = strings.TrimSpace(f); f != "" {
+				h.Del(f)
+			}
+		}
+	}
+}
+
+func removeHopHeaders(h http.Header) {
+	for _, k := range hopHeaders {
+		hv := h.Get(k)
+		if hv == "" {
+			continue
+		}
+		if k == "Te" && hv == "trailers" {
+			continue
+		}
+		h.Del(k)
+	}
+}
+
+// prune clean http header
+func prune(h http.Header) {
+	removeConnectionHeaders(h)
+	removeHopHeaders(h)
 }
