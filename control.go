@@ -18,12 +18,14 @@ import (
 // core. This means copying IP objects, slices, de-referencing pointers and taking the actual value, etc
 
 type Control struct {
-	f          *Interface
-	l          *logrus.Logger
-	cancel     context.CancelFunc
-	sshStart   func()
-	statsStart func()
-	dnsStart   func()
+	f            *Interface
+	l            *logrus.Logger
+	cancel       context.CancelFunc
+	sshStart     func()
+	statsStart   func()
+	dnsStart     func()
+	proxyStart   func()
+	forwardStart func()
 }
 
 type ControlHostInfo struct {
@@ -53,6 +55,12 @@ func (c *Control) Start() {
 	}
 	if c.dnsStart != nil {
 		go c.dnsStart()
+	}
+	if c.proxyStart != nil {
+		go c.proxyStart()
+	}
+	if c.forwardStart != nil {
+		go c.forwardStart()
 	}
 
 	// Start reading packets.
